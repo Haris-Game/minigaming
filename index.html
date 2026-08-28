@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Multiplayer Game Suite</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; user-select: none; background: #000; }
+
+    .screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background-color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #game-selection-page, #racing-game-screen, #snl-game-screen, #memory-game-screen { display: none; }
+
+    /* Main Menu */
+    #main-menu { position: relative; }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, auto);
+      gap: 15px;
+      justify-items: center;
+      align-items: center;
+      z-index: 5;
+    }
+    .pixel-btn { width: 80px; height: 80px; image-rendering: pixelated; cursor: pointer; }
+    .pixel-btn:active { transform: scale(0.95); }
+    .btn-full-width { grid-column: span 2; }
+
+    .corner-trigger {
+      position: absolute;
+      width: 65px;
+      height: 65px;
+      image-rendering: pixelated;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .top-left-trigger { top: 20px; left: 20px; }
+    .top-right-trigger { top: 20px; right: 20px; }
+    .bottom-left-trigger { bottom: 20px; left: 20px; }
+    .bottom-right-trigger { bottom: 20px; right: 20px; }
+
+    /* Selection Page */
+    .selection-header {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      z-index: 10;
+    }
+    .back-arrow {
+      width: 35px;
+      height: 35px;
+      cursor: pointer;
+    }
+    .selection-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #000;
+    }
+
+    .games-grid-layout {
+      display: grid;
+      grid-template-columns: repeat(2, 130px);
+      gap: 20px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 40px;
+    }
+
+    .game-card-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .game-card-item:active {
+      transform: scale(0.95);
+    }
+    .game-thumb {
+      width: 130px;
+      height: 80px;
+      background: #eee;
+      border: 3px solid #000;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      overflow: hidden;
+    }
+    .game-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .game-title-bar {
+      width: 130px;
+      background: #000;
+      color: #fff;
+      text-align: center;
+      padding: 6px 0;
+      font-size: 11px;
+      font-weight: bold;
+      border-radius: 0 0 8px 8px;
+    }
+
+    /* Racing Controls */
+    .control-group {
+      position: absolute;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+    }
+
+    .steering-container {
+      width: 85px; 
+      height: 85px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+    }
+
+    .steering-wheel {
+      width: 100%; 
+      height: 100%;
+      image-rendering: pixelated;
+      transform-origin: center center;
+      pointer-events: none;
+    }
+
+    .lap-counter {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .p1-ctrl-pos { bottom: 15px; right: 15px; }
+    .p1-ctrl-pos .lap-counter { top: -25px; right: 0; }
+
+    .p2-ctrl-pos { top: 15px; left: 15px; }
+    .p2-ctrl-pos .lap-counter { bottom: -25px; left: 0; }
+
+    .p3-ctrl-pos { top: 15px; right: 15px; }
+    .p3-ctrl-pos .lap-counter { bottom: -25px; right: 0; }
+
+    .p4-ctrl-pos { bottom: 15px; left: 15px; }
+    .p4-ctrl-pos .lap-counter { top: -25px; left: 0; }
+
+    #gameCanvas { background: #000; display: block; }
+    #countdown-overlay {
+      position: absolute;
+      font-size: 80px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 4px 4px 0px #000;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+      display: none;
+      position: absolute;
+      z-index: 30;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    /* Snake & Ladders Screen Layout */
+    #snl-game-screen {
+      background: #ffffff;
+      flex-direction: column;
+      position: relative;
+    }
+
+    #snl-board-wrapper {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #snlCanvas {
+      display: block;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      border-radius: 8px;
+    }
+
+    .snl-ctrl-group {
+      position: absolute;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .snl-trigger-btn {
+      width: 55px;
+      height: 55px;
+      image-rendering: pixelated;
+      cursor: pointer;
+    }
+
+    .snl-dice-box {
+      width: 55px;
+      height: 55px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .snl-dice-cover {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      position: absolute;
+      top: 0; left: 0;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .dice-img-overlay {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      pointer-events: none;
+      image-rendering: pixelated;
+      z-index: 2;
+    }
+
+    #snl-ctrl-1 { bottom: 20px; right: 20px; flex-direction: row-reverse; } 
+    #snl-ctrl-2 { top: 20px; left: 20px; flex-direction: row; }             
+    #snl-ctrl-3 { top: 20px; right: 20px; flex-direction: row-reverse; }    
+    #snl-ctrl-4 { bottom: 20px; left: 20px; flex-direction: row; }          
+
+    #wheel-modal {
+      display: none;
+      position: absolute;
+      z-index: 40;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.85);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #wheel-wrapper {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      margin-bottom: 20px;
+    }
+
+    #spin-canvas {
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #fff;
+    }
+
+    .wheel-pointer {
+      position: absolute;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-top: 25px solid #fff;
+      z-index: 5;
+    }
+
+    #turn-banner, #memory-turn-banner {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 15px 35px;
+      background: rgba(0,0,0,0.9);
+      border: 3px solid #fff;
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      border-radius: 12px;
+      z-index: 25;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+
+    /* Memory Game Screen Layout */
+    #memory-game-screen {
+      background: #111827;
+      flex-direction: column;
+      position: relative;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    .memory-score-board {
+      position: absolute;
+      top: 10px;
+      display: flex;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 20px;
+      z-index: 10;
+    }
+
+    .score-badge {
+      font-weight: bold;
+      font-size: 13px;
+      color: #fff;
+      padding: 3px 6px;
+      border-radius: 6px;
+    }
+
+    #memory-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      width: 90vw;
+      max-width: 500px;
+      margin-top: 55px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      aspect-ratio: 1;
+      background: #1f2937;
+      border: 2px solid #374151;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+      touch-action: manipulation;
+      padding: 4px;
+    }
+
+    .card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      pointer-events: none;
+    }
+
+    .card.flipped {
+      background: #ffffff;
+      transform: rotateY(180deg);
+    }
+
+    .card.flipped img {
+      display: block;
+    }
+
+    .card.matched {
+      visibility: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <audio id="click-sound" src="click-sound.wav" preload="auto"></audio>
+  <audio id="car-sound" src="car-sound.mp3" loop preload="auto"></audio>
+  <audio id="victory-sound" src="victory-sound.mp3" preload="auto"></audio>
+  <audio id="puck-sound" src="puck-sound.png" preload="auto"></audio>
+  <audio id="dice-roll-sound" src="dice-roll-sound.mp3" preload="auto"></audio>
+  <audio id="point-sound" src="point-sound.mp3" preload="auto"></audio>
+  <audio id="card-flip-sound" src="card-flip.mp3" preload="auto"></audio>
+
+  <div style="display:none;">
+    <img id="img-red-car" src="red-car.png">
+    <img id="img-blue-car" src="blue-car.png">
+    <img id="img-orange-car" src="orange-car.png">
+    <img id="img-green-car" src="green-car.png">
+    <img id="img-map" src="pixil-frame-0.png">
+    
+    <img id="img-red-trigger" src="red-trigger.png">
+    <img id="img-blue-trigger" src="blue-trigger.png">
+    <img id="img-orange-trigger" src="orange-trigger.png">
+    <img id="img-green-trigger" src="green-trigger.png">
+
+    <img id="img-red-trigger-pressed" src="red-trigger-pressed.png">
+    <img id="img-blue-trigger-pressed" src="blue-trigger-pressed.png">
+    <img id="img-orange-trigger-pressed" src="orange-trigger-pressed.png">
+    <img id="img-green-trigger-pressed" src="green-trigger-pressed.png">
+
+    <img id="img-red-dice-cover" src="red-dice-cover.png">
+    <img id="img-blue-dice-cover" src="blue-dice-cover.png">
+    <img id="img-orange-dice-cover" src="orange-dice-cover.png">
+    <img id="img-green-dice-cover" src="green-dice-cover.png">
+
+    <img id="img-red-puck" src="red-puck.png">
+    <img id="img-blue-puck" src="blue-puck.png">
+    <img id="img-orange-puck" src="orange-puck.png">
+    <img id="img-green-puck" src="green-puck.png">
+
+    <img id="img-dice-1" src="dice-one.png">
+    <img id="img-dice-2" src="dice-two.png">
+    <img id="img-dice-3" src="dice-three.png">
+    <img id="img-dice-4" src="dice-four.png">
+    <img id="img-dice-5" src="dice-five.png">
+    <img id="img-dice-6" src="dice-six.png">
+
+    <img id="img-snl-board" src="snl-board.png">
+  </div>
+
+  <div id="main-menu" class="screen">
+    <img src="blue-trigger.png" class="corner-trigger top-left-trigger">
+    <img src="orange-trigger.png" class="corner-trigger top-right-trigger">
+    <img src="green-trigger.png" class="corner-trigger bottom-left-trigger">
+    <img src="red-trigger.png" class="corner-trigger bottom-right-trigger">
+
+    <div class="button-grid">
+      <img src="first-player.png" class="pixel-btn" id="btn-1p" onclick="selectMode(1)">
+      <img src="second-button.png" class="pixel-btn" id="btn-2p" onclick="selectMode(2)">
+      <img src="third-button.png" class="pixel-btn" id="btn-3p" onclick="selectMode(3)">
+      <img src="fourth-button.png" class="pixel-btn" id="btn-4p" onclick="selectMode(4)">
+      <img src="twoVStwo.png" class="pixel-btn btn-full-width" id="btn-2v2" onclick="selectMode('2v2')">
+    </div>
+  </div>
+
+  <div id="game-selection-page" class="screen">
+    <div class="selection-header">
+      <svg class="back-arrow" onclick="goBack('game-selection-page')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+        <path d="M19 12H5M12 19l-7-7 7-7"/>
+      </svg>
+      <div class="selection-title" id="mode-selection-title">3 Player</div>
+    </div>
+
+    <div class="games-grid-layout">
+      <div class="game-card-item" onclick="startSnakeAndLadders()">
+        <div class="game-thumb"><img src="snl-board.png" alt="SNL"></div>
+        <div class="game-title-bar">Snakes & Ladders</div>
+      </div>
+      <div class="game-card-item" onclick="startMiniRacing()">
+        <div class="game-thumb">🏎️</div>
+        <div class="game-title-bar">Speed Racing</div>
+      </div>
+      <div class="game-card-item" onclick="startMemoryGame()">
+        <div class="game-thumb">🚩</div>
+        <div class="game-title-bar">Matching Pairs</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="racing-game-screen" class="screen">
+    <div id="countdown-overlay"></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="winner-modal" class="modal-overlay">
+      <h1 id="winner-title">P1 WINS!</h1>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
+        <button class="pixel-btn" style="width:auto; height:40px; padding:0 15px; color:#000; background:#fff; border-radius:6px;" onclick="startMiniRacing()">Replay</button>
+        <button class="pixel-btn" style="width:auto; height:40px; padding:0 15px; color:#fff; background:#444; border-radius:6px;" onclick="exitToSelection('racing-game-screen', 'winner-modal')">Back</button>
+      </div>
+    </div>
+
+    <div class="control-group p1-ctrl-pos" id="race-ctrl-1">
+      <div class="steering-container" id="wheel-box-1">
+        <div class="lap-counter" id="lap-p1">P1: 0/3</div>
+        <img src="red-steering-wheel.png" class="steering-wheel" id="wheel-1">
+      </div>
+    </div>
+    <div class="control-group p2-ctrl-pos" id="race-ctrl-2">
+      <div class="steering-container" id="wheel-box-2">
+        <div class="lap-counter" id="lap-p2">P2: 0/3</div>
+        <img src="blue-steering-wheel.png" class="steering-wheel" id="wheel-2">
+      </div>
+    </div>
+    <div class="control-group p3-ctrl-pos" id="race-ctrl-3">
+      <div class="steering-container" id="wheel-box-3">
+        <div class="lap-counter" id="lap-p3">P3: 0/3</div>
+        <img src="orange-steering-wheel.png" class="steering-wheel" id="wheel-3">
+      </div>
+    </div>
+    <div class="control-group p4-ctrl-pos" id="race-ctrl-4">
+      <div class="steering-container" id="wheel-box-4">
+        <div class="lap-counter" id="lap-p4">P4: 0/3</div>
+        <img src="green-steering-wheel.png" class="steering-wheel" id="wheel-4">
+      </div>
+    </div>
+  </div>
+
+  <div id="snl-game-screen" class="screen">
+    <div id="turn-banner">Red's Turn</div>
+
+    <div id="snl-board-wrapper">
+      <canvas id="snlCanvas"></canvas>
+    </div>
+
+    <div class="snl-ctrl-group" id="snl-ctrl-1">
+      <img src="red-trigger.png" class="snl-trigger-btn" id="snl-trig-1" 
+           onpointerdown="pressTrigger(0)" onpointerup="releaseTrigger(0)" onpointerleave="releaseTrigger(0)">
+      <div class="snl-dice-box">
+        <img src="red-dice-cover.png" class="snl-dice-cover">
+        <img src="dice-one.png" class="dice-img-overlay" id="snl-dice-overlay-1">
+      </div>
+    </div>
+
+    <div class="snl-ctrl-group" id="snl-ctrl-2">
+      <img src="blue-trigger.png" class="snl-trigger-btn" id="snl-trig-2" 
+           onpointerdown="pressTrigger(1)" onpointerup="releaseTrigger(1)" onpointerleave="releaseTrigger(1)">
+      <div class="snl-dice-box">
+        <img src="blue-dice-cover.png" class="snl-dice-cover">
+        <img src="dice-one.png" class="dice-img-overlay" id="snl-dice-overlay-2">
+      </div>
+    </div>
+
+    <div class="snl-ctrl-group" id="snl-ctrl-3">
+      <img src="orange-trigger.png" class="snl-trigger-btn" id="snl-trig-3" 
+           onpointerdown="pressTrigger(2)" onpointerup="releaseTrigger(2)" onpointerleave="releaseTrigger(2)">
+      <div class="snl-dice-box">
+        <img src="orange-dice-cover.png" class="snl-dice-cover">
+        <img src="dice-one.png" class="dice-img-overlay" id="snl-dice-overlay-3">
+      </div>
+    </div>
+
+    <div class="snl-ctrl-group" id="snl-ctrl-4">
+      <img src="green-trigger.png" class="snl-trigger-btn" id="snl-trig-4" 
+           onpointerdown="pressTrigger(3)" onpointerup="releaseTrigger(3)" onpointerleave="releaseTrigger(3)">
+      <div class="snl-dice-box">
+        <img src="green-dice-cover.png" class="snl-dice-cover">
+        <img src="dice-one.png" class="dice-img-overlay" id="snl-dice-overlay-4">
+      </div>
+    </div>
+
+    <div id="wheel-modal">
+      <div id="wheel-wrapper">
+        <div class="wheel-pointer"></div>
+        <canvas id="spin-canvas" width="260" height="260"></canvas>
+      </div>
+      <button class="pixel-btn" style="width:auto; height:45px; padding:0 25px; background:#ef4444; color:#fff; border-radius:8px; font-weight:bold;" onclick="spinWheel()">SPIN WHEEL</button>
+    </div>
+
+    <div id="snl-winner-modal" class="modal-overlay">
+      <h1 id="snl-winner-title">P1 WINS!</h1>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
+        <button class="pixel-btn" style="width:auto; height:40px; padding:0 15px; color:#000; background:#fff; border-radius:6px;" onclick="startSnakeAndLadders()">Replay</button>
+        <button class="pixel-btn" style="width:auto; height:40px; padding:0 15px; color:#fff; background:#444; border-radius:6px;" onclick="exitToSelection('snl-game-screen', 'snl-winner-modal')">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="memory-game-screen" class="screen">
+    <div id="memory-turn-banner">Red's Turn</div>
+    <div class="memory-score-board" id="memory-score-board"></div>
+
+    <div id="memory-grid"></div>
+
+    <div id="memory-winner-modal" class="modal-overlay">
+      <h1 id="memory-winner-title">P1 WINS!</h1>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
+        <button class="pixel-btn" style="width:auto; height:40px; padding:0 15px; color:#000; background:#fff; border-radius:6px;" onclick="startMemoryGame()">Replay</button>
+        <button class="pixel-btn" style="width:auto; height:40px; padding:0 15px; color:#fff; background:#444; border-radius:6px;" onclick="exitToSelection('memory-game-screen', 'memory-winner-modal')">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const clickAudio = document.getElementById('click-sound');
+    const carAudio = document.getElementById('car-sound');
+    const victoryAudio = document.getElementById('victory-sound');
+    const puckAudio = document.getElementById('puck-sound');
+    const diceRollAudio = document.getElementById('dice-roll-sound');
+    const pointAudio = document.getElementById('point-sound');
+    const cardFlipAudio = document.getElementById('card-flip-sound');
+
+    const TOTAL_LAPS = 3;
+    let selectedPlayerCount = 2;
+
+    const diceImages = [
+      "dice-one.png",
+      "dice-two.png",
+      "dice-three.png",
+      "dice-four.png",
+      "dice-five.png",
+      "dice-six.png"
+    ];
+
+    function playCarSound() { carAudio.currentTime = 0; carAudio.play().catch(() => {}); }
+    function stopCarSound() { carAudio.pause(); carAudio.currentTime = 0; }
+    function playVictorySound() { victoryAudio.currentTime = 0; victoryAudio.play().catch(() => {}); }
+    function stopVictorySound() { victoryAudio.pause(); victoryAudio.currentTime = 0; }
+    function playClickSound() { clickAudio.currentTime = 0; clickAudio.play().catch(() => {}); }
+    function playPuckSound() { puckAudio.currentTime = 0; puckAudio.play().catch(() => {}); }
+    function playDiceRollSound() { diceRollAudio.currentTime = 0; diceRollAudio.play().catch(() => {}); }
+    function playPointSound() { pointAudio.currentTime = 0; pointAudio.play().catch(() => {}); }
+    function playCardFlipSound() { cardFlipAudio.currentTime = 0; cardFlipAudio.play().catch(() => {}); }
+
+    function selectMode(mode) {
+      playClickSound();
+      if (typeof mode === 'number' || mode === '2v2') {
+        selectedPlayerCount = (mode === '2v2') ? 4 : mode;
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('mode-selection-title').innerText = (mode === '2v2') ? '2 v 2' : `${selectedPlayerCount} Player`;
+        document.getElementById('game-selection-page').style.display = 'flex';
+      }
+    }
+
+    function goBack(pageId) {
+      playClickSound();
+      document.getElementById(pageId).style.display = 'none';
+      document.getElementById('main-menu').style.display = 'flex';
+    }
+
+    function exitToSelection(screenId, modalId) {
+      playClickSound();
+      stopCarSound();
+      stopVictorySound();
+      if (modalId) document.getElementById(modalId).style.display = 'none';
+      document.getElementById(screenId).style.display = 'none';
+      document.getElementById('game-selection-page').style.display = 'flex';
+    }
+
+    /* ================= MINI RACING LOGIC ================= */
+    let canvas, ctx, mapImg;
+    let mapCanvas, mapCtx;
+    let raceActive = false;
+    let cars = [];
+    let lastTime = 0;
+
+    const ALL_CARS_CONFIG = [
+      { id: 1, name: "P1 (Red)", imgId: 'img-red-car' },
+      { id: 2, name: "P2 (Blue)", imgId: 'img-blue-car' },
+      { id: 3, name: "P3 (Orange)", imgId: 'img-orange-car' },
+      { id: 4, name: "P4 (Green)", imgId: 'img-green-car' }
+    ];
+
+    function startMiniRacing() {
+      playClickSound();
+      stopVictorySound();
+      document.getElementById('game-selection-page').style.display = 'none';
+      document.getElementById('racing-game-screen').style.display = 'flex';
+      document.getElementById('winner-modal').style.display = 'none';
+
+      canvas = document.getElementById('gameCanvas');
+      ctx = canvas.getContext('2d');
+      mapImg = document.getElementById('img-map');
+
+      const mapRatio = mapImg.naturalWidth / mapImg.naturalHeight || 0.5;
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+
+      if (screenWidth / screenHeight > mapRatio) {
+        canvas.height = screenHeight;
+        canvas.width = screenHeight * mapRatio;
+      } else {
+        canvas.width = screenWidth;
+        canvas.height = screenWidth / mapRatio;
+      }
+
+      mapCanvas = document.createElement('canvas');
+      mapCanvas.width = canvas.width;
+      mapCanvas.height = canvas.height;
+      mapCtx = mapCanvas.getContext('2d', { willReadFrequently: true });
+      mapCtx.drawImage(mapImg, 0, 0, canvas.width, canvas.height);
+
+      const startX = canvas.width * 0.72;
+      const startY = canvas.height * 0.6;
+
+      const offsets = [
+        { x: -15, y: 40 },
+        { x: 10, y: 20 },
+        { x: -15, y: 0 },
+        { x: 10, y: -20 }
+      ];
+
+      cars = [];
+      for (let i = 1; i <= 4; i++) {
+        const ctrlGroup = document.getElementById(`race-ctrl-${i}`);
+        if (i <= selectedPlayerCount) {
+          ctrlGroup.style.display = 'flex';
+          const carConf = ALL_CARS_CONFIG[i - 1];
+          cars.push({
+            id: carConf.id,
+            name: carConf.name,
+            x: startX + offsets[i - 1].x,
+            y: startY + offsets[i - 1].y,
+            angle: -Math.PI / 2,
+            targetAngle: -Math.PI / 2,
+            img: document.getElementById(carConf.imgId),
+            lap: 0,
+            checkpoint1: false,
+            canCrossFinish: true
+          });
+          const lapElem = document.getElementById(`lap-p${i}`);
+          if (lapElem) lapElem.innerText = `P${i}: 0/${TOTAL_LAPS}`;
+        } else {
+          ctrlGroup.style.display = 'none';
+        }
+      }
+
+      setupInteractions();
+      runCountdown();
+    }
+
+    function runCountdown() {
+      const overlay = document.getElementById('countdown-overlay');
+      let count = 3;
+      overlay.innerText = count;
+      raceActive = false;
+
+      const timer = setInterval(() => {
+        count--;
+        if (count > 0) {
+          overlay.innerText = count;
+        } else if (count === 0) {
+          overlay.innerText = "GO!";
+        } else {
+          overlay.innerText = "";
+          clearInterval(timer);
+          raceActive = true;
+          playCarSound();
+          lastTime = performance.now();
+          requestAnimationFrame(gameLoop);
+        }
+      }, 1000);
+    }
+
+    function setupInteractions() {
+      for (let i = 1; i <= selectedPlayerCount; i++) {
+        const box = document.getElementById(`wheel-box-${i}`);
+        if (!box) continue;
+        let activePointerId = null;
+        let center = { x: 0, y: 0 };
+
+        const updateCenter = () => {
+          const rect = box.getBoundingClientRect();
+          center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        };
+
+        const processInput = (e) => {
+          const dx = e.clientX - center.x;
+          const dy = e.clientY - center.y;
+          if (Math.hypot(dx, dy) < 8) return;
+          if (cars[i - 1]) {
+            cars[i - 1].targetAngle = Math.atan2(dy, dx);
+          }
+        };
+
+        box.addEventListener('pointerdown', (e) => {
+          activePointerId = e.pointerId;
+          box.setPointerCapture(e.pointerId);
+          updateCenter();
+          processInput(e);
+        });
+
+        box.addEventListener('pointermove', (e) => {
+          if (e.pointerId === activePointerId) processInput(e);
+        });
+
+        const releasePointer = (e) => {
+          if (e.pointerId === activePointerId) activePointerId = null;
+        };
+
+        box.addEventListener('pointerup', releasePointer);
+        box.addEventListener('pointercancel', releasePointer);
+      }
+    }
+
+    function isBlackRoad(x, y) {
+      if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return false;
+      const pixel = mapCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+      return pixel[0] < 50 && pixel[1] < 50 && pixel[2] < 50;
+    }
+
+    function gameLoop(currentTime) {
+      if (!raceActive) return;
+
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+      lastTime = currentTime;
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(mapImg, 0, 0, canvas.width, canvas.height);
+
+      cars.forEach((car) => {
+        let diff = car.targetAngle - car.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+
+        car.angle += diff * 12 * dt;
+
+        const wheelImg = document.getElementById(`wheel-${car.id}`);
+        if (wheelImg) wheelImg.style.transform = `rotate(${car.angle + Math.PI/2}rad)`;
+
+        const speed = 210 * dt;
+        const nextX = car.x + Math.cos(car.angle) * speed;
+        const nextY = car.y + Math.sin(car.angle) * speed;
+
+        if (isBlackRoad(nextX, nextY)) {
+          car.x = nextX;
+          car.y = nextY;
+        } else if (isBlackRoad(car.x + Math.cos(car.angle) * speed, car.y)) {
+          car.x += Math.cos(car.angle) * (speed * 0.3);
+        } else if (isBlackRoad(car.x, car.y + Math.sin(car.angle) * speed)) {
+          car.y += Math.sin(car.angle) * (speed * 0.3);
+        }
+
+        const cpX = canvas.width * 0.28;
+        const cpY = canvas.height * 0.3;
+
+        if (Math.hypot(car.x - cpX, car.y - cpY) < 100) car.checkpoint1 = true;
+
+        const finishX = canvas.width * 0.72;
+        const finishY = canvas.height * 0.5;
+        const distToFinish = Math.hypot(car.x - finishX, car.y - finishY);
+
+        if (distToFinish > 120) car.canCrossFinish = true;
+
+        if (car.checkpoint1 && distToFinish < 80 && car.canCrossFinish) {
+          car.lap += 1;
+          car.checkpoint1 = false;
+          car.canCrossFinish = false;
+          document.getElementById(`lap-p${car.id}`).innerText = `P${car.id}: ${car.lap}/${TOTAL_LAPS}`;
+
+          if (car.lap >= TOTAL_LAPS) {
+            raceActive = false;
+            stopCarSound();
+            playVictorySound();
+            document.getElementById('winner-title').innerText = `${car.name} WINS!`;
+            document.getElementById('winner-modal').style.display = 'flex';
+          }
+        }
+
+        ctx.save();
+        ctx.translate(car.x, car.y);
+        ctx.rotate(car.angle + Math.PI/2);
+        ctx.imageSmoothingEnabled = false;
+
+        const size = Math.min(canvas.width, canvas.height) * 0.08; 
+        ctx.drawImage(car.img, -size / 2, -size / 2, size, size);
+        ctx.restore();
+      });
+
+      if (raceActive) requestAnimationFrame(gameLoop);
+    }
+
+    /* ================= SNAKE & LADDERS LOGIC ================= */
+    let snlCanvas, snlCtx, snlBoardImg;
+    let snlTurn = 0;
+    let isRolling = false;
+    let snlPlayers = [];
+
+    const ALL_PLAYERS_CONFIG = [
+      { id: 1, name: "Red", colorHex: "#ef4444", triggerNormal: "red-trigger.png", triggerPressed: "red-trigger-pressed.png", puckImg: "img-red-puck" },
+      { id: 2, name: "Blue", colorHex: "#3b82f6", triggerNormal: "blue-trigger.png", triggerPressed: "blue-trigger-pressed.png", puckImg: "img-blue-puck" },
+      { id: 3, name: "Orange", colorHex: "#f97316", triggerNormal: "orange-trigger.png", triggerPressed: "orange-trigger-pressed.png", puckImg: "img-orange-puck" },
+      { id: 4, name: "Green", colorHex: "#22c55e", triggerNormal: "green-trigger.png", triggerPressed: "green-trigger-pressed.png", puckImg: "img-green-puck" }
+    ];
+
+    const BOARD_LADDERS = {
+      4: 16, 7: 29, 20: 64, 30: 32, 40: 60,
+      44: 56, 50: 68, 58: 62, 66: 74, 77: 95, 80: 99, 90: 92
+    };
+
+    const BOARD_SNAKES = {
+      28: 6, 35: 15, 38: 18, 51: 31, 59: 42,
+      71: 48, 88: 76, 93: 67, 96: 84, 98: 26
+    };
+
+    function startSnakeAndLadders() {
+      playClickSound();
+      stopVictorySound();
+      document.getElementById('game-selection-page').style.display = 'none';
+      document.getElementById('snl-game-screen').style.display = 'flex';
+      document.getElementById('snl-winner-modal').style.display = 'none';
+
+      snlCanvas = document.getElementById('snlCanvas');
+      snlCtx = snlCanvas.getContext('2d');
+      snlBoardImg = document.getElementById('img-snl-board');
+
+      const maxH = window.innerHeight * 0.75;
+      const maxW = window.innerWidth * 0.85;
+      const boardRatio = snlBoardImg.naturalWidth / snlBoardImg.naturalHeight || 0.75;
+
+      if (maxW / maxH > boardRatio) {
+        snlCanvas.height = maxH;
+        snlCanvas.width = maxH * boardRatio;
+      } else {
+        snlCanvas.width = maxW;
+        snlCanvas.height = maxW / boardRatio;
+      }
+
+      snlPlayers = [];
+      for (let i = 0; i < selectedPlayerCount; i++) {
+        snlPlayers.push({
+          ...ALL_PLAYERS_CONFIG[i],
+          tile: 1,
+          scale: 1
+        });
+      }
+
+      for (let i = 1; i <= 4; i++) {
+        const ctrlGroup = document.getElementById(`snl-ctrl-${i}`);
+        if (i <= selectedPlayerCount) {
+          ctrlGroup.style.display = 'flex';
+          document.getElementById(`snl-trig-${i}`).src = ALL_PLAYERS_CONFIG[i-1].triggerNormal;
+          document.getElementById(`snl-dice-overlay-${i}`).src = diceImages[0];
+        } else {
+          ctrlGroup.style.display = 'none';
+        }
+      }
+
+      drawSnlBoard();
+      
+      if (selectedPlayerCount === 1) {
+        snlTurn = 0;
+        announceTurn();
+      } else {
+        openSpinWheel();
+      }
+    }
+
+    let wheelSegments = [];
+    let currentWheelAngle = 0;
+    let isSpinningWheel = false;
+
+    function openSpinWheel() {
+      const modal = document.getElementById('wheel-modal');
+      modal.style.display = 'flex';
+      
+      wheelSegments = [];
+      const iterations = selectedPlayerCount === 3 ? 3 : (selectedPlayerCount === 4 ? 3 : 4);
+      
+      for (let r = 0; r < iterations; r++) {
+        for (let i = 0; i < selectedPlayerCount; i++) {
+          wheelSegments.push(ALL_PLAYERS_CONFIG[i]);
+        }
+      }
+      drawWheel();
+    }
+
+    function drawWheel() {
+      const cvs = document.getElementById('spin-canvas');
+      const c = cvs.getContext('2d');
+      const numSlices = wheelSegments.length;
+      const arc = (Math.PI * 2) / numSlices;
+
+      c.clearRect(0, 0, cvs.width, cvs.height);
+
+      wheelSegments.forEach((seg, i) => {
+        const angle = currentWheelAngle + i * arc;
+        c.beginPath();
+        c.fillStyle = seg.colorHex;
+        c.moveTo(130, 130);
+        c.arc(130, 130, 130, angle, angle + arc);
+        c.lineTo(130, 130);
+        c.fill();
+        c.lineWidth = 2;
+        c.strokeStyle = '#ffffff';
+        c.stroke();
+      });
+    }
+
+    function spinWheel() {
+      if (isSpinningWheel) return;
+      playClickSound();
+      isSpinningWheel = true;
+
+      const totalRotation = Math.PI * 2 * 5 + Math.random() * Math.PI * 2;
+      const startAngle = currentWheelAngle;
+      const duration = 2500;
+      const startTime = performance.now();
+
+      function animateWheel(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+
+        currentWheelAngle = startAngle + totalRotation * easeOut;
+        drawWheel();
+
+        if (progress < 1) {
+          requestAnimationFrame(animateWheel);
+        } else {
+          isSpinningWheel = false;
+          
+          const numSlices = wheelSegments.length;
+          const arc = (Math.PI * 2) / numSlices;
+          const normalizedAngle = (Math.PI * 2 - (currentWheelAngle % (Math.PI * 2)) - Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
+          const winningIndex = Math.floor(normalizedAngle / arc);
+
+          const winner = wheelSegments[winningIndex];
+          snlTurn = ALL_PLAYERS_CONFIG.findIndex(p => p.id === winner.id);
+
+          setTimeout(() => {
+            document.getElementById('wheel-modal').style.display = 'none';
+            announceTurn();
+          }, 600);
+        }
+      }
+      requestAnimationFrame(animateWheel);
+    }
+
+    function announceTurn() {
+      isRolling = false;
+      
+      const banner = document.getElementById('turn-banner');
+      const p = snlPlayers[snlTurn];
+      banner.innerText = `${p.name}'s Turn`;
+      banner.style.color = p.colorHex;
+      banner.style.display = 'block';
+
+      setTimeout(() => {
+        banner.style.display = 'none';
+      }, 800);
+    }
+
+    function getTileCenter(tileNum) {
+      const tileSizeX = snlCanvas.width / 10;
+      const tileSizeY = snlCanvas.height / 10;
+
+      let row = Math.floor((tileNum - 1) / 10);
+      let col = (tileNum - 1) % 10;
+
+      if (row % 2 === 1) {
+        col = 9 - col;
+      }
+
+      const x = col * tileSizeX + tileSizeX / 2;
+      return { x, y: snlCanvas.height - (row * tileSizeY + tileSizeY / 2) };
+    }
+
+    function drawSnlBoard() {
+      snlCtx.clearRect(0, 0, snlCanvas.width, snlCanvas.height);
+      snlCtx.drawImage(snlBoardImg, 0, 0, snlCanvas.width, snlCanvas.height);
+
+      snlPlayers.forEach((p, idx) => {
+        const pos = getTileCenter(p.tile);
+        const offset = (idx - (snlPlayers.length - 1) / 2) * 8;
+        const puckImgElem = document.getElementById(p.puckImg);
+
+        const puckSize = (snlCanvas.width * 0.06) * (p.scale || 1);
+
+        snlCtx.save();
+        snlCtx.translate(pos.x + offset, pos.y);
+        snlCtx.imageSmoothingEnabled = false;
+        snlCtx.drawImage(puckImgElem, -puckSize / 2, -puckSize / 2, puckSize, puckSize);
+        snlCtx.restore();
+      });
+    }
+
+    function pressTrigger(playerIndex) {
+      if (playerIndex !== snlTurn || isRolling) return;
+      const player = snlPlayers[playerIndex];
+      const trigElem = document.getElementById(`snl-trig-${player.id}`);
+      trigElem.src = player.triggerPressed;
+      
+      triggerDiceRoll(playerIndex);
+    }
+
+    function releaseTrigger(playerIndex) {
+      if (playerIndex >= snlPlayers.length) return;
+      const player = snlPlayers[playerIndex];
+      const trigElem = document.getElementById(`snl-trig-${player.id}`);
+      trigElem.src = player.triggerNormal;
+    }
+
+    function triggerDiceRoll(playerIndex) {
+      isRolling = true;
+      playDiceRollSound();
+      const player = snlPlayers[playerIndex];
+      const diceOverlay = document.getElementById(`snl-dice-overlay-${player.id}`);
+
+      let elapsed = 0;
+      const shuffleInterval = setInterval(() => {
+        elapsed += 50;
+        const randomRoll = Math.floor(Math.random() * 6);
+        diceOverlay.src = diceImages[randomRoll];
+
+        if (elapsed >= 500) {
+          clearInterval(shuffleInterval);
+          const finalRoll = Math.floor(Math.random() * 6) + 1;
+          diceOverlay.src = diceImages[finalRoll - 1];
+          movePlayer(finalRoll);
+        }
+      }, 50);
+    }
+
+    function movePlayer(roll) {
+      const p = snlPlayers[snlTurn];
+      let targetTile = p.tile + roll;
+
+      if (targetTile > 100) {
+        setTimeout(() => {
+          checkWinCondition();
+        }, 300);
+        return;
+      }
+
+      let step = p.tile;
+      const stepInterval = setInterval(() => {
+        if (step < targetTile) {
+          step++;
+          p.tile = step;
+          
+          playPuckSound();
+
+          p.scale = 1.4;
+          drawSnlBoard();
+
+          setTimeout(() => {
+            p.scale = 1.0;
+            drawSnlBoard();
+          }, 100);
+
+        } else {
+          clearInterval(stepInterval);
+
+          if (BOARD_LADDERS[p.tile]) {
+            setTimeout(() => {
+              p.tile = BOARD_LADDERS[p.tile];
+              playPuckSound();
+              p.scale = 1.4;
+              drawSnlBoard();
+              setTimeout(() => {
+                p.scale = 1.0;
+                drawSnlBoard();
+                checkWinCondition();
+              }, 100);
+            }, 300);
+          } else if (BOARD_SNAKES[p.tile]) {
+            setTimeout(() => {
+              p.tile = BOARD_SNAKES[p.tile];
+              playPuckSound();
+              p.scale = 1.4;
+              drawSnlBoard();
+              setTimeout(() => {
+                p.scale = 1.0;
+                drawSnlBoard();
+                checkWinCondition();
+              }, 100);
+            }, 300);
+          } else {
+            checkWinCondition();
+          }
+        }
+      }, 250);
+    }
+
+    function checkWinCondition() {
+      const p = snlPlayers[snlTurn];
+      if (p.tile === 100) {
+        playVictorySound();
+        document.getElementById('snl-winner-title').innerText = `${p.name} WINS!`;
+        document.getElementById('snl-winner-modal').style.display = 'flex';
+      } else {
+        snlTurn = (snlTurn + 1) % snlPlayers.length;
+        announceTurn();
+      }
+    }
+
+    /* ================= MATCHING PAIRS LOGIC ================= */
+    let memoryTurn = 0;
+    let memoryScores = [];
+    let memoryFlippedCards = [];
+    let isMemoryLock = false;
+    let totalPairsMatched = 0;
+
+    const BASE_FLAG_IMAGES = [
+      'download.png',      
+      'download (1).png',  
+      'download (2).png',  
+      'download (3).png',  
+      'download (4).png',  
+      'images.png',        
+      'first-flag.png',    
+      'second-flag.png',   
+      'third-flag.png',    
+      'fourth-flag.png'    
+    ];
+
+    function startMemoryGame() {
+      playClickSound();
+      stopVictorySound();
+      document.getElementById('game-selection-page').style.display = 'none';
+      document.getElementById('memory-game-screen').style.display = 'flex';
+      document.getElementById('memory-winner-modal').style.display = 'none';
+
+      memoryTurn = 0;
+      isMemoryLock = false;
+      totalPairsMatched = 0;
+      memoryFlippedCards = [];
+
+      memoryScores = [];
+      for (let i = 0; i < selectedPlayerCount; i++) {
+        memoryScores.push({ ...ALL_PLAYERS_CONFIG[i], score: 0 });
+      }
+
+      updateMemoryScoreboard();
+      renderMemoryGrid();
+      announceMemoryTurn();
+    }
+
+    function updateMemoryScoreboard() {
+      const board = document.getElementById('memory-score-board');
+      board.innerHTML = '';
+      memoryScores.forEach(p => {
+        const badge = document.createElement('div');
+        badge.className = 'score-badge';
+        badge.style.background = p.colorHex;
+        badge.innerText = `${p.name}: ${p.score}`;
+        board.appendChild(badge);
+      });
+    }
+
+    function announceMemoryTurn() {
+      const banner = document.getElementById('memory-turn-banner');
+      const p = memoryScores[memoryTurn];
+      banner.innerText = `${p.name}'s Turn`;
+      banner.style.color = p.colorHex;
+      banner.style.display = 'block';
+
+      setTimeout(() => {
+        banner.style.display = 'none';
+      }, 800);
+    }
+
+    function renderMemoryGrid() {
+      const grid = document.getElementById('memory-grid');
+      grid.innerHTML = '';
+      
+      const deck = [...BASE_FLAG_IMAGES, ...BASE_FLAG_IMAGES].sort(() => Math.random() - 0.5);
+
+      deck.forEach((imgSrc, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.flag = imgSrc;
+        card.dataset.index = index;
+
+        const img = document.createElement('img');
+        img.src = imgSrc;
+        card.appendChild(img);
+
+        card.onclick = () => handleCardClick(card);
+        grid.appendChild(card);
+      });
+    }
+
+    function handleCardClick(card) {
+      if (isMemoryLock || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+      playCardFlipSound();
+      card.classList.add('flipped');
+      memoryFlippedCards.push(card);
+
+      if (memoryFlippedCards.length === 2) {
+        isMemoryLock = true;
+        const [card1, card2] = memoryFlippedCards;
+
+        if (card1.dataset.flag === card2.dataset.flag) {
+          playPointSound();
+          memoryScores[memoryTurn].score += 1;
+          totalPairsMatched += 1;
+          updateMemoryScoreboard();
+
+          setTimeout(() => {
+            card1.classList.add('matched');
+            card2.classList.add('matched');
+            memoryFlippedCards = [];
+            isMemoryLock = false;
+
+            if (totalPairsMatched === BASE_FLAG_IMAGES.length) {
+              endMemoryGame();
+            }
+          }, 500);
+        } else {
+          setTimeout(() => {
+            card1.classList.remove('flipped');
+            card2.classList.remove('flipped');
+            memoryFlippedCards = [];
+            isMemoryLock = false;
+
+            memoryTurn = (memoryTurn + 1) % memoryScores.length;
+            announceMemoryTurn();
+          }, 1000);
+        }
+      }
+    }
+
+    function endMemoryGame() {
+      playVictorySound();
+      let highestScore = -1;
+      let winnerName = "";
+
+      memoryScores.forEach(p => {
+        if (p.score > highestScore) {
+          highestScore = p.score;
+          winnerName = p.name;
+        }
+      });
+
+      document.getElementById('memory-winner-title').innerText = `${winnerName} WINS!`;
+      document.getElementById('memory-winner-modal').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
